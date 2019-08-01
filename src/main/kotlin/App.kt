@@ -6,6 +6,8 @@ import step.*
 import util.*
 import java.nio.file.*
 import util.CmdRunner
+import kotlin.random.Random
+
 private val log = KotlinLogging.logger {}
 
 fun main(args: Array<String>) = Cli().main(args)
@@ -16,7 +18,8 @@ class Cli : CliktCommand() {
     private val ctaFile: Path? by option("-cta", help = "path for control TAGALIGN file.")
             .path()
     private val outputPrefix: String by option("-outputPrefix", help = "output file name prefix; defaults to 'output'").default("output")
-    private val fraglen: Int by option("-fraglen", help = "Fragment Length").int().required()
+    private val fraglen: Path by option("-fraglen", help = "Fragment Length").path().required()
+    private val shift: Int by option("-shift", help = "macs2 callpeak --shift").int().default(0)
     private val chrsz:Path by option("-chrsz",help = "2-col chromosome sizes file.").path().required()
     private val gensz:String? by option("-gensz",help = "Genome size (sum of entries in 2nd column of \\\n" +
             "chr. sizes file, or hs for human, ms for mouse).").default("")
@@ -28,10 +31,12 @@ class Cli : CliktCommand() {
     private val pairedEnd: Boolean by option("-pairedEnd", help = "Paired-end BAM.").flag()
     private val outDir by option("-outputDir", help = "path to output Directory")
             .path().required()
+    private val keepIrregularChr: Boolean by option("-keep-irregular-chr", help = "Keep reads with non-canonical chromosome names.").flag()
+
 
     override fun run() {
         val cmdRunner = DefaultCmdRunner()
-        cmdRunner.runTask(taFile, ctaFile,blacklistFile,fraglen, chrsz, gensz, pvalThresh, cap_num_peak, makeSignal,pairedEnd, outDir, outputPrefix)
+        cmdRunner.runTask(taFile, ctaFile,blacklistFile,fraglen,keepIrregularChr, chrsz, gensz, pvalThresh, cap_num_peak, makeSignal,pairedEnd,shift, outDir, outputPrefix)
     }
 }
 
@@ -40,17 +45,17 @@ class Cli : CliktCommand() {
  * @param bwaInputs bwa Input
  * @param outDir Output Path
  */
-fun CmdRunner.runTask(taFile:Path, ctaFile:Path?,blackListFile:Path,fraglen:Int, chrsz:Path, gensz:String?, pvalThresh:Double,  cap_num_peak:Int, makeSignal:Boolean, pairedEnd: Boolean, outDir:Path, outputPrefix:String) {
+fun CmdRunner.runTask(taFile:Path, ctaFile:Path?,blackListFile:Path,fraglen:Path,keepIrregularChr:Boolean, chrsz:Path, gensz:String?, pvalThresh:Double,  cap_num_peak:Int, makeSignal:Boolean, pairedEnd: Boolean,shift:Int, outDir:Path, outputPrefix:String) {
 
-    log.info { "Calling peaks and generating signal tracks with MACS2..." }
-    var mo:macs2Output =  macs2(taFile, ctaFile, chrsz, gensz, pvalThresh, cap_num_peak, makeSignal,pairedEnd, outDir, outputPrefix)
+    //log.info { "Calling peaks and generating signal tracks with MACS2..." }
+    var mo:macs2Output =  macs2(taFile, ctaFile, chrsz, gensz, pvalThresh, cap_num_peak, makeSignal,pairedEnd,shift, fraglen,outDir, outputPrefix)
 
     log.info { "Blacklist-filtering peaks..." }
-    var bfil =   blacklist_filter(mo.npeak, blackListFile, outDir)
+   var bfil =   blacklist_filter(mo.npeak, blackListFile, keepIrregularChr,outDir)
 
     log.info { "Converting peak to bigbed..." }
-    var bb = peak_to_bigbed(bfil, "narrowPeak", chrsz, outDir)
+   var bb = peak_to_bigbed(bfil, "narrowPeak", chrsz, keepIrregularChr,outDir)
 
     log.info { "Shifted FRiP with fragment length..." }
-    val frip_qc =  frip_shifted(taFile,bfil, fraglen, chrsz, outDir)
+   val frip_qc =  frip_shifted(taFile,bfil, fraglen, chrsz, outDir)
 }

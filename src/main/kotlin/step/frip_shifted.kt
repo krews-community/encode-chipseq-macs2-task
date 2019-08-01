@@ -32,10 +32,11 @@ fun CmdRunner.frip(ta: Path, peak:String, out_dir:Path):String {
     File(frip_qc).writeText((val1!!.trim().toFloat()/val2!!.trim().toFloat()).toString())
     return frip_qc
 }
-fun CmdRunner.frip_shifted(ta: Path, peak:String,fraglen:Int,chrsz:Path, out_dir:Path):String {
+fun CmdRunner.frip_shifted(ta: Path, peak:String,fraglen:Path,chrsz:Path, out_dir:Path):String {
     val prefix =out_dir.resolve(strip_ext(peak))
     val frip_qc = "${prefix}.frip.qc"//.format(prefix)
-    val half_fraglen = (fraglen+1)/2
+    val fl = readFraglen(fraglen.toString())
+    val half_fraglen = (fl+1)/2
 
     var lc = this.runCommand("zcat -f ${peak} | wc -l")
     var val1:String?
@@ -50,7 +51,7 @@ fun CmdRunner.frip_shifted(ta: Path, peak:String,fraglen:Int,chrsz:Path, out_dir
         var cmd = "bedtools slop -i ${ta} -g ${chrsz} "
         cmd += "-s -l -${half_fraglen} -r ${half_fraglen} | "
         cmd += "awk \'{{if ($2>=0 && $3>=0 && $2<=$3) print $0}}\' | "
-        cmd += "bedtools intersect -a stdin -b ${tmp2} "
+        cmd += "bedtools intersect -nonamecheck -a stdin -b ${tmp2} "
         cmd += "-wa -u | wc -l"
         val1 = this.runCommand(cmd)
         //Delete temp files at the end
@@ -61,4 +62,10 @@ fun CmdRunner.frip_shifted(ta: Path, peak:String,fraglen:Int,chrsz:Path, out_dir
     var val2 = this.runCommand("zcat -f ${ta} | wc -l")
     File(frip_qc).writeText((val1!!.toFloat()/val2!!.toFloat()).toString())
     return frip_qc
+}
+
+private fun readFraglen(f:String):Int {
+    val s = java.io.File(f).readText(Charsets.UTF_8)
+    return s!!.trim().toInt();
+
 }

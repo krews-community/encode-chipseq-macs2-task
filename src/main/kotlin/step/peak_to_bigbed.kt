@@ -3,7 +3,7 @@ import util.*
 import java.io.File
 import java.nio.file.Path
 
-fun CmdRunner.peak_to_bigbed(peak:String, peak_type:String, chrsz:Path, out_dir:Path):String {
+fun CmdRunner.peak_to_bigbed(peak:String, peak_type:String, chrsz:Path,keepIrregularChr:Boolean, out_dir:Path):String {
     var prefix = out_dir.resolve(strip_ext(peak))
     val bigbed = "${prefix}.${peak_type}.bb"
     val as_file = "${prefix}.as"
@@ -80,11 +80,21 @@ fun CmdRunner.peak_to_bigbed(peak:String, peak_type:String, chrsz:Path, out_dir:
 
     File(as_file).writeText(as_file_contents)
 
-    var cmd2 = "zcat -f ${peak} | sort -k1,1 -k2,2n > ${bigbed_tmp}"//.format(peak, bigbed_tmp)
+    var cmd1:String
+    if(!keepIrregularChr){
+        cmd1 = "cat ${chrsz} | grep -P \"chr[\\dXY]+\\b\" > ${chrsz_tmp}"
+    }
+    else{
+        cmd1 = "cat ${chrsz} > ${chrsz_tmp}"
+    }
+    this.run(cmd1)
+
+    var cmd2 = "zcat -f ${peak} | LC_COLLATE=C  sort -k1,1 -k2,2n | "
+    cmd2 += "awk \'BEGIN{{OFS='\\t'}} {{if ($5>1000) $5=1000; if ($5<0) $5=0; printf \"%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\",\$1,\$2,\$3,\$4,\$5,\$6,\$7,\$8,\$9,\$10}}\' > ${bigbed_tmp}"
     this.run(cmd2)
-    var cmd3 = "bedClip ${bigbed_tmp} ${chrsz} ${bigbed_tmp2}"//.format(bigbed_tmp, chrsz, bigbed_tmp2)
+    var cmd3 = "bedClip ${bigbed_tmp} ${chrsz_tmp} ${bigbed_tmp2}"
     this.run(cmd3)
-    var cmd4 = "bedToBigBed ${bed_param} ${bigbed_tmp2} ${chrsz} ${bigbed}".format(bed_param, bigbed_tmp2, chrsz, bigbed)
+    var cmd4 = "bedToBigBed ${bed_param} ${bigbed_tmp2} ${chrsz_tmp} ${bigbed}"
     this.run(cmd4)
 
     var tmpFiles = mutableListOf<String>()

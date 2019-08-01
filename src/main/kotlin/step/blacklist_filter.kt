@@ -5,7 +5,7 @@ import util.*
 import java.nio.file.Path
 
 
-fun CmdRunner.blacklist_filter(peak:String, blacklist:Path, outDir:Path):String {
+fun CmdRunner.blacklist_filter(peak:String, blacklist:Path, keepIrregularChr:Boolean,outDir:Path):String {
 
     var prefix = outDir.resolve(strip_ext(peak))
     val  peak_ext = get_ext(peak)
@@ -26,9 +26,14 @@ fun CmdRunner.blacklist_filter(peak:String, blacklist:Path, outDir:Path):String 
         var tmp1 = gunzip(peak,  outDir,"tmp1")
         var tmp2 = gunzip(blacklist.toString(), outDir,"tmp2")
 
-        var cmd = "bedtools intersect -v -a ${tmp1} -b ${tmp2} | "
+        var cmd = "bedtools intersect -nonamecheck -v -a ${tmp1} -b ${tmp2} | "
         cmd += "awk \'BEGIN{{OFS='\\t'}} "
         cmd += "{{if ($5>1000) $5=1000; print $0}}\' | "
+        if(!keepIrregularChr)
+        {
+            cmd += "grep -P \'chr[\\dXY]+\\b\' | "
+        }
+
         cmd += "gzip -nc > ${filtered}"
 
         this.run(cmd)
