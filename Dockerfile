@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y \
     git clone https://github.com/weng-lab/kent && \
         cd kent/src/lib && make CFLAGS=-DLIBUUID_NOT_PRESENT && cd ../jkOwnLib && make && cd ../htslib && make && \
         mkdir -p /root/bin/x86_64 && cd ../utils/bedClip && make && cd ../bedGraphToBigWig && make && \
-        cd ../bedToBigBed && make && cd ../bigWigCorrelate && make && \
+        cd ../bedToBigBed && make && cd ../bigWigCorrelate && make &&\
         cd / && rm -rf kent && mv /root/bin/x86_64/* /bin && \
         git clone https://github.com/arq5x/bedtools2 && cd bedtools2 && make && \
         mv bin/* /bin && cd .. && rm -rf bedtools2 && \
